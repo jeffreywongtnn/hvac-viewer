@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B2典藏庫房｜溫濕度監測圖庫</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:        #0B2A4A;
+    --bg-deep:   #081D35;
+    --panel:     #12365E;
+    --line:      rgba(142,202,230,0.14);
+    --line-strong: rgba(142,202,230,0.32);
+    --ink:       #EAF4FB;
+    --ink-dim:   #8FB3CE;
+    --ink-faint: #5C89A8;
+    --accent:    #6FC3E8;
+    --accent-dim:#3E7A96;
+    --ok:        #57C08A;
+    --warn:      #E8A33D;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --sans: 'IBM Plex Sans TC', 'Noto Sans TC', -apple-system, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(var(--line) 1px, transparent 1px) 0 0/40px 40px,
+      linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0/40px 40px,
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ── Header ── */
+  header{
+    padding:22px 28px 18px;
+    border-bottom:1px solid var(--line-strong);
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .title-block{display:flex; align-items:baseline; gap:14px;}
+  .title-block .mark{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:0.18em;
+    color:var(--accent);
+    border:1px solid var(--accent-dim);
+    padding:3px 8px;
+    border-radius:2px;
+  }
+  h1{
+    font-size:20px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:0.02em;
+  }
+  h1 .sub{
+    display:block;
+    font-family:var(--mono);
+    font-weight:400;
+    font-size:11px;
+    letter-spacing:0.14em;
+    color:var(--ink-faint);
+    margin-top:4px;
+    text-transform:uppercase;
+  }
+  .refresh-btn{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:var(--ink-dim);
+    background:transparent;
+    border:1px solid var(--line-strong);
+    padding:8px 14px;
+    border-radius:2px;
+    cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  .refresh-btn:hover{border-color:var(--accent); color:var(--accent);}
+  .refresh-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  /* ── Layout ── */
+  .layout{
+    flex:1;
+    display:grid;
+    grid-template-columns:220px 1fr;
+    min-height:0;
+  }
+
+  /* ── Date rail ── */
+  nav.date-rail{
+    border-right:1px solid var(--line-strong);
+    overflow-y:auto;
+    padding:16px 0 40px;
+  }
+  .rail-hint{
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:0.1em;
+    color:var(--ink-faint);
+    padding:0 20px 14px;
+    text-transform:uppercase;
+    border-bottom:1px dashed var(--line);
+    margin-bottom:8px;
+  }
+  .month-group{margin-bottom:6px;}
+  .month-label{
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:0.12em;
+    color:var(--ink-faint);
+    padding:10px 20px 4px;
+  }
+  .day-btn{
+    width:100%;
+    text-align:left;
+    background:transparent;
+    border:none;
+    border-left:2px solid transparent;
+    color:var(--ink-dim);
+    font-family:var(--mono);
+    font-size:13px;
+    padding:7px 20px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    transition:background .12s, color .12s, border-color .12s;
+  }
+  .day-btn .tick{
+    width:5px; height:5px; border-radius:50%;
+    background:var(--ink-faint);
+    flex:none;
+  }
+  .day-btn:hover{background:rgba(111,195,232,0.06); color:var(--ink);}
+  .day-btn.active{
+    background:rgba(111,195,232,0.10);
+    color:var(--ink);
+    border-left-color:var(--accent);
+  }
+  .day-btn.active .tick{background:var(--accent);}
+  .day-btn:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+
+  .rail-empty, .rail-loading{
+    padding:16px 20px;
+    font-size:12px;
+    color:var(--ink-faint);
+    line-height:1.7;
+  }
+
+  /* ── Sheet viewer ── */
+  main.sheet-wrap{
+    padding:22px;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+  .sheet{
+    flex:1;
+    position:relative;
+    border:1px solid var(--line-strong);
+    background:var(--bg-deep);
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .crop{
+    position:absolute;
+    width:16px; height:16px;
+    border:1px solid var(--accent);
+    opacity:0.7;
+    pointer-events:none;
+  }
+  .crop.tl{top:-1px; left:-1px; border-right:none; border-bottom:none;}
+  .crop.tr{top:-1px; right:-1px; border-left:none; border-bottom:none;}
+  .crop.bl{bottom:-1px; left:-1px; border-right:none; border-top:none;}
+  .crop.br{bottom:-1px; right:-1px; border-left:none; border-top:none;}
+
+  .sheet-frame{
+    flex:1;
+    min-height:0;
+    border:none;
+    width:100%;
+    background:#fff;
+  }
+  .sheet-empty{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:40px;
+  }
+  .sheet-empty .msg{
+    max-width:420px;
+    color:var(--ink-dim);
+    font-size:13px;
+    line-height:1.9;
+  }
+  .sheet-empty .msg b{color:var(--ink); font-weight:600;}
+  .sheet-empty code{
+    font-family:var(--mono);
+    background:rgba(111,195,232,0.10);
+    padding:2px 6px;
+    border-radius:2px;
+    color:var(--accent);
+  }
+
+  .title-strip{
+    border-top:1px solid var(--line-strong);
+    padding:9px 16px;
+    display:flex;
+    gap:22px;
+    align-items:center;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--ink-faint);
+    letter-spacing:0.05em;
+    flex-wrap:wrap;
+  }
+  .title-strip .field b{
+    color:var(--ink);
+    font-weight:600;
+    margin-left:6px;
+  }
+  .title-strip .field{text-transform:uppercase;}
+  .title-strip .spacer{flex:1;}
+
+  @media (max-width:760px){
+    .layout{grid-template-columns:1fr;}
+    nav.date-rail{
+      border-right:none;
+      border-bottom:1px solid var(--line-strong);
+      display:flex;
+      overflow-x:auto;
+      overflow-y:hidden;
+      padding:12px 8px;
+      white-space:nowrap;
+    }
+    .rail-hint{display:none;}
+    .month-group{display:flex; align-items:center; margin:0;}
+    .month-label{padding:0 8px; white-space:nowrap;}
+    .day-btn{width:auto; border-left:none; border-bottom:2px solid transparent; padding:6px 10px;}
+    .day-btn.active{border-left-color:transparent; border-bottom-color:var(--accent);}
+    main.sheet-wrap{padding:12px;}
+    .title-strip{font-size:10px; gap:14px;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <span class="mark">MEP&nbsp;/&nbsp;B2</span>
+    <h1>典藏庫房 溫濕度監測圖庫
+      <span class="sub">Daily Interactive Temperature &amp; Humidity Log</span>
+    </h1>
+  </div>
+  <button class="refresh-btn" id="refreshBtn" type="button">↻ 重新掃描日期</button>
+</header>
+
+<div class="layout">
+  <nav class="date-rail" id="dateRail" aria-label="日期選單">
+    <div class="rail-loading" id="railStatus">掃描 charts/ 資料夾中…</div>
+  </nav>
+
+  <main class="sheet-wrap">
+    <div class="sheet" id="sheet">
+      <div class="crop tl"></div><div class="crop tr"></div>
+      <div class="crop bl"></div><div class="crop br"></div>
+      <div class="sheet-empty" id="sheetEmpty">
+        <div class="msg">
+          尚未偵測到任何每日圖表。<br><br>
+          請將 <code>hvac_checker.py</code> 選單 3 產出的
+          <code>YYYY-MM-DD.html</code> 檔案放進本頁同層的
+          <code>charts/</code> 資料夾，然後按右上角
+          <b>「重新掃描日期」</b>。
+        </div>
+      </div>
+      <iframe class="sheet-frame" id="sheetFrame" title="溫濕度互動曲線" style="display:none;"></iframe>
+    </div>
+    <div class="title-strip" id="titleStrip" style="display:none;">
+      <div class="field">日期<b id="tsDate">—</b></div>
+      <div class="field">空間選擇<b>圖表內右上角下拉選單</b></div>
+      <div class="spacer"></div>
+      <div class="field">製表<b>陳孟男建築師事務所</b></div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ── 設定：掃描的日期範圍 ────────────────────────────────
+  // START_DATE：最早可能有資料的日期（依實際監測起始日調整）
+  // 結束日固定抓到「今天」，並多抓 2 天緩衝（時區/預先產出）
+  var START_DATE = '2026-07-20';
+  var CHARTS_DIR = 'charts/';
+  var CONCURRENCY = 12;
+
+  function pad(n){ return n < 10 ? '0'+n : ''+n; }
+  function toISO(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+
+  function buildDateRange(){
+    var start = new Date(START_DATE+'T00:00:00');
+    var end = new Date();
+    end.setDate(end.getDate()+2);
+    var out = [];
+    for (var d = new Date(end); d >= start; d.setDate(d.getDate()-1)){
+      out.push(toISO(d));
+    }
+    return out; // 新到舊
+  }
+
+  function checkExists(dateStr){
+    var url = CHARTS_DIR + dateStr + '.html';
+    return fetch(url, { method:'HEAD', cache:'no-store' })
+      .then(function(res){ return res.ok ? dateStr : null; })
+      .catch(function(){ return null; });
+  }
+
+  function runPool(items, worker, concurrency){
+    return new Promise(function(resolve){
+      var results = [];
+      var idx = 0, active = 0, done = 0;
+      function next(){
+        if (idx >= items.length){
+          if (active === 0) resolve(results);
+          return;
+        }
+        var i = idx++; active++;
+        worker(items[i]).then(function(r){
+          results[i] = r; active--; done++;
+          next();
+        });
+      }
+      var starters = Math.min(concurrency, items.length);
+      if (starters === 0) resolve(results);
+      for (var k=0;k<starters;k++) next();
+    });
+  }
+
+  var railStatus = document.getElementById('railStatus');
+  var dateRail   = document.getElementById('dateRail');
+  var sheetEmpty = document.getElementById('sheetEmpty');
+  var sheetFrame = document.getElementById('sheetFrame');
+  var titleStrip = document.getElementById('titleStrip');
+  var tsDate     = document.getElementById('tsDate');
+  var refreshBtn = document.getElementById('refreshBtn');
+
+  var activeBtn = null;
+
+  function selectDate(dateStr, btn){
+    if (activeBtn) activeBtn.classList.remove('active');
+    btn.classList.add('active');
+    activeBtn = btn;
+
+    sheetEmpty.style.display = 'none';
+    sheetFrame.style.display = 'block';
+    sheetFrame.src = CHARTS_DIR + dateStr + '.html';
+    titleStrip.style.display = 'flex';
+    tsDate.textContent = dateStr;
+  }
+
+  function renderDates(dates){
+    dateRail.innerHTML = '';
+    if (dates.length === 0){
+      var empty = document.createElement('div');
+      empty.className = 'rail-empty';
+      empty.textContent = 'charts/ 資料夾內找不到任何 YYYY-MM-DD.html 檔案。';
+      dateRail.appendChild(empty);
+      return;
+    }
+
+    var hint = document.createElement('div');
+    hint.className = 'rail-hint';
+    hint.textContent = '共 ' + dates.length + ' 天';
+    dateRail.appendChild(hint);
+
+    var groups = {}; // 'YYYY-MM' -> [dateStr,...]
+    dates.forEach(function(d){
+      var key = d.slice(0,7);
+      (groups[key] = groups[key] || []).push(d);
+    });
+
+    Object.keys(groups).sort().reverse().forEach(function(monthKey){
+      var g = document.createElement('div');
+      g.className = 'month-group';
+      var label = document.createElement('div');
+      label.className = 'month-label';
+      label.textContent = monthKey.replace('-', ' / ');
+      g.appendChild(label);
+
+      groups[monthKey].forEach(function(dateStr){
+        var btn = document.createElement('button');
+        btn.className = 'day-btn';
+        btn.type = 'button';
+        var dObj = new Date(dateStr+'T00:00:00');
+        var wd = ['日','一','二','三','四','五','六'][dObj.getDay()];
+        btn.innerHTML = '<span class="tick"></span>' + dateStr.slice(8) + '　週' + wd;
+        btn.setAttribute('aria-label', dateStr);
+        btn.addEventListener('click', function(){ selectDate(dateStr, btn); });
+        g.appendChild(btn);
+      });
+
+      dateRail.appendChild(g);
+    });
+
+    // 預設選第一筆（最新日期）
+    var firstBtn = dateRail.querySelector('.day-btn');
+    if (firstBtn) selectDate(dates[0], firstBtn);
+  }
+
+  function scan(){
+    railStatus.style.display = 'block';
+    railStatus.textContent = '掃描 charts/ 資料夾中…';
+    dateRail.innerHTML = '';
+    dateRail.appendChild(railStatus);
+
+    var range = buildDateRange();
+    runPool(range, checkExists, CONCURRENCY).then(function(results){
+      var found = results.filter(Boolean).sort().reverse();
+      renderDates(found);
+    });
+  }
+
+  refreshBtn.addEventListener('click', scan);
+  scan();
+})();
+</script>
+
+</body>
+</html>
